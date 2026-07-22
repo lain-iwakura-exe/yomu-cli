@@ -114,7 +114,7 @@ pick_manga() {
      (.attributes.year // "????")] |
     @tsv
   ' | awk -F'\t' '{printf "%s\t%s (%s)\n", $1, $2, $3}' \
-    | fzf --with-nth=2 --delimiter='\t' --prompt="Select manga > " --height=80% --border)" || true
+    | fzf --with-nth=2 --delimiter='\t' --layout=reverse --prompt="Select manga > " --height=80% --border)" || true
 
   [[ -n "${selection:-}" ]] || die "no selection made."
   echo "$selection" | cut -f1
@@ -146,15 +146,16 @@ pick_chapter() {
   local selection
   selection="$(echo "$json" | jq -r '
     .data[] |
+    select((.attributes.pages // 0) > 0) |
     [.id,
      (.attributes.volume // "-"),
      (.attributes.chapter // "-"),
      (.attributes.title // "")] |
     @tsv
   ' | awk -F'\t' '{printf "%s\tVol %s, Ch %s — %s\n", $1, $2, $3, $4}' \
-    | fzf --with-nth=2 --delimiter='\t' --prompt="Select chapter > " --height=80% --border)" || true
+    | fzf --with-nth=2 --delimiter='\t' --layout=reverse --prompt="Select chapter > " --height=80% --border)" || true
 
-  [[ -n "${selection:-}" ]] || die "no selection made."
+  [[ -n "${selection:-}" ]] || die "no chapters with downloadable pages found (remaining entries may be external-only links)."
   echo "$selection" | cut -f1
 }
 
@@ -173,7 +174,7 @@ download_chapter() {
   local files
   mapfile -t files < <(echo "$json" | jq -r '.chapter.data[]')
 
-  (( ${#files[@]} > 0 )) || die "no pages found for this chapter."
+  (( ${#files[@]} > 0 )) || die "no pages found for this chapter (it may be external-only). Try a different chapter."
 
   echo "Downloading ${#files[@]} pages..." >&2
 
@@ -191,11 +192,14 @@ download_chapter() {
 # ---------------------------------------------------------------------------
 render_page() {
   local file="$1"
-  clear
+  # Full wipe: visible screen + scrollback + cursor home.
+  # A bare `clear` alone can leave stale cells behind chafa's
+  # letterboxed (aspect-preserved) output between pages.
+  printf '\033[2J\033[3J\033[H'
   if [[ "$RENDERER" == "kitty" ]]; then
     kitty +kitten icat --clear --transfer-mode=stream "$file"
   else
-    chafa --size="$(tput cols)x$(tput lines)" "$file"
+    chafa --clear --size="$(tput cols)x$(tput lines)" "$file"
   fi
 }
 
