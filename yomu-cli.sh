@@ -5,6 +5,7 @@
 # Requires: curl, jq, fzf, and either chafa or kitty (for icat)
 #
 set -euo pipefail
+shopt -s inherit_errexit 2>/dev/null || true
 
 API="https://api.mangadex.org"
 RENDERER="chafa"          # chafa | kitty
@@ -113,9 +114,9 @@ pick_manga() {
      (.attributes.year // "????")] |
     @tsv
   ' | awk -F'\t' '{printf "%s\t%s (%s)\n", $1, $2, $3}' \
-    | fzf --with-nth=2 --delimiter='\t' --prompt="Select manga > " --height=80% --border)
+    | fzf --with-nth=2 --delimiter='\t' --prompt="Select manga > " --height=80% --border)" || true
 
-  [[ -n "$selection" ]] || die "no selection made."
+  [[ -n "${selection:-}" ]] || die "no selection made."
   echo "$selection" | cut -f1
 }
 
@@ -151,9 +152,9 @@ pick_chapter() {
      (.attributes.title // "")] |
     @tsv
   ' | awk -F'\t' '{printf "%s\tVol %s, Ch %s — %s\n", $1, $2, $3, $4}' \
-    | fzf --with-nth=2 --delimiter='\t' --prompt="Select chapter > " --height=80% --border)
+    | fzf --with-nth=2 --delimiter='\t' --prompt="Select chapter > " --height=80% --border)" || true
 
-  [[ -n "$selection" ]] || die "no selection made."
+  [[ -n "${selection:-}" ]] || die "no selection made."
   echo "$selection" | cut -f1
 }
 
