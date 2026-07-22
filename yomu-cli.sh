@@ -143,10 +143,16 @@ pick_chapter() {
   count="$(echo "$json" | jq '.data | length')"
   (( count > 0 )) || die "no chapters found for language '$LANG_FILTER'."
 
+  local readable_json
+  readable_json="$(echo "$json" | jq '[.data[] | select((.attributes.pages // 0) > 0)]')"
+
+  local readable_count
+  readable_count="$(echo "$readable_json" | jq 'length')"
+  (( readable_count > 0 )) || die "no chapters with downloadable pages found — this title's English chapters on MangaDex appear to be external-only links (common for officially licensed titles). Try -l to search another language, or a different title."
+
   local selection
-  selection="$(echo "$json" | jq -r '
-    .data[] |
-    select((.attributes.pages // 0) > 0) |
+  selection="$(echo "$readable_json" | jq -r '
+    .[] |
     [.id,
      (.attributes.volume // "-"),
      (.attributes.chapter // "-"),
@@ -155,7 +161,7 @@ pick_chapter() {
   ' | awk -F'\t' '{printf "%s\tVol %s, Ch %s — %s\n", $1, $2, $3, $4}' \
     | fzf --with-nth=2 --delimiter='\t' --layout=reverse --prompt="Select chapter > " --height=80% --border)" || true
 
-  [[ -n "${selection:-}" ]] || die "no chapters with downloadable pages found (remaining entries may be external-only links)."
+  [[ -n "${selection:-}" ]] || die "no selection made."
   echo "$selection" | cut -f1
 }
 
